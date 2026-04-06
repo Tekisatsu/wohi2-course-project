@@ -1,0 +1,18 @@
+meta {
+  name: PUT
+  type: http
+  seq: 1
+}
+
+put {
+  url: {{baseurl}}/3
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "question": "Edited?",
+    "answer": "Yes"
+  }
+}

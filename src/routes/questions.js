@@ -13,10 +13,10 @@ router.get("/", (req, res) => {
       res.json(filteredQuestions);
 });
 router.get("/:id", (req, res) => {
-      const questionId = Number(req.params.questionId);
-      const question = questions.find((q) => q.id === questionId);
+      const questionId = Number(req.params.id);
+      const question = questions.find(q => q.id === questionId);
       if (!question) {
-            return res.status(404).json({ msg: "Post not found" });
+            return res.status(404).json({ msg: "Question not found" });
       }
       res.json(question);
 });
@@ -34,7 +34,7 @@ router.post("/", (req, res) => {
       questions.push(newQuestion);
       res.status(201).json(newQuestion);
 });
-router.put("./:questionId", (req, res) => {
+router.put("/:id", (req, res) => {
       const questionId = Number(req.params.id);
       const { question, answer } = req.body;
       const q = questions.find((q) => q.id === questionId);
@@ -48,9 +48,9 @@ router.put("./:questionId", (req, res) => {
       q.answer = answer;
       res.json(q);
 });
-router.delete("./:questionId", (req, res) => {
-      const questionId = Number(req.params.questionId);
-      const questionIndex = questions.find((q) => q.id === questionId);
+router.delete("/:id", (req, res) => {
+      const questionId = Number(req.params.id);
+      const questionIndex = questions.findIndex((q) => q.id === questionId);
       if (questionIndex === -1) {
             return res.status(404).json({ msg: "Question not found" });
       }
