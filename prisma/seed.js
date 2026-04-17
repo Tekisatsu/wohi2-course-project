@@ -21,12 +21,12 @@ const seedQuestions = [
 ];
 
 async function main() {
-      await prisma.question.deleteMany();
+      await prisma.quiz.deleteMany();
 
       for (const question of seedQuestions) {
-            await prisma.post.create({
+            await prisma.quiz.create({
                   data: {
-                        question: question.seedQuestions,
+                        question: question.question,
                         answer: question.answer,
                   },
             });
