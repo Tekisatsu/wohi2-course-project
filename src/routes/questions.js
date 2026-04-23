@@ -40,7 +40,9 @@ router.post("/", async (req, res) => {
 
       const newQuestion = await prisma.quiz.create({
             data: {
-                  userId: req.user.userId,
+                  user: {
+                        connect: { id: req.user.userId }
+                  },
                   question: question,
                   answer: answer,
             },
@@ -61,7 +63,7 @@ router.put("/:id", isOwner, async (req, res) => {
             return res.status(400).json({ msg: "question and answer are mandatory" });
       }
 
-      const updatedQuestion = await prisma.post.update({
+      const updatedQuestion = await prisma.quiz.update({
             where: { id: id },
             data: {
                   answer: answer,
