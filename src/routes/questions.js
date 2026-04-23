@@ -2,6 +2,9 @@ const express = require("express");
 const router = express.Router();
 const prisma = require("../lib/prisma");
 const req = require("express/lib/request");
+const authenticate = require("../middleware/auth");
+const isOwner = require("../middleware/isOwner");
+router.use(authenticate);
 
 router.get("/", async (req, res) => {
       const questions = await prisma.quiz.findMany({
@@ -37,6 +40,7 @@ router.post("/", async (req, res) => {
 
       const newQuestion = await prisma.quiz.create({
             data: {
+                  userId: req.user.userId,
                   question: question,
                   answer: answer,
             },
@@ -45,7 +49,7 @@ router.post("/", async (req, res) => {
       res.status(201).json(newQuestion);
 });
 
-router.put("/:id", async (req, res) => {
+router.put("/:id", isOwner, async (req, res) => {
       const id = Number(req.params.id);
       const { question, answer } = req.body;
       const existingQuestion = await prisma.quiz.findUnique({ where: { id: id } });
@@ -66,7 +70,7 @@ router.put("/:id", async (req, res) => {
       });
       res.json(updatedQuestion);
 });
-router.delete("/:id", async (req, res) => {
+router.delete("/:id", isOwner, async (req, res) => {
       const id = Number(req.params.id);
 
       const question = await prisma.quiz.findUnique({
