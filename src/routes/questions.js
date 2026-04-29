@@ -9,24 +9,32 @@ router.use(authenticate);
 function formatQuestion(question) {
       return {
             ...question,
+            keywords: question.keywords.map((k) => k.name),
             userName: question.user?.name || null,
             user: undefined,
       };
 }
 
 router.get("/", async (req, res) => {
+      const { keyword } = req.query;
+
+      const where = keyword
+            ? { keywords: { some: { name: keyword } } }
+            : {};
+
       const questions = await prisma.quiz.findMany({
-            include: { user: true },
+            where,
+            include: { keywords: true, user: true },
             orderBy: { id: "asc" },
       });
       const formatted = questions.map(q => formatQuestion(q));
-      res.json(formatQuestion(formatted));
+      res.json(formatted);
 });
 
 router.get("/:id", async (req, res) => {
       const id = Number(req.params.id);
       const question = await prisma.quiz.findUnique({
-            include: { user: true },
+            include: { keywords: true, user: true },
             where: { id: id },
       });
 
@@ -38,7 +46,7 @@ router.get("/:id", async (req, res) => {
       res.json(formatQuestion(question));
 });
 router.post("/", async (req, res) => {
-      const { question, answer } = req.body;
+      const { question, answer, keywords } = req.body;
 
       if (!question || !answer) {
             return res.status(400).json({
@@ -47,6 +55,8 @@ router.post("/", async (req, res) => {
             });
       }
 
+      const keywordsArray = Array.isArray(keywords) ? keywords : [];
+
       const newQuestion = await prisma.quiz.create({
             data: {
                   user: {
@@ -54,15 +64,21 @@ router.post("/", async (req, res) => {
                   },
                   question: question,
                   answer: answer,
+                  keywords: {
+                        connectOrCreate: keywordsArray.map((kw) => ({
+                              where: { name: kw }, create: { name: kw },
+                        })),
+                  },
             },
+            include: { keywords: true },
       });
 
-      res.status(201).json(newQuestion);
+      res.status(201).json(formatQuestion(newQuestion));
 });
 
 router.put("/:id", isOwner, async (req, res) => {
       const id = Number(req.params.id);
-      const { question, answer } = req.body;
+      const { question, answer, keywords } = req.body;
       const existingQuestion = await prisma.quiz.findUnique({ where: { id: id } });
       if (!existingQuestion) {
             return res.status(404).json({ message: "Question not found" });
@@ -72,20 +88,28 @@ router.put("/:id", isOwner, async (req, res) => {
             return res.status(400).json({ msg: "question and answer are mandatory" });
       }
 
+      const keywordsArray = Array.isArray(keywords) ? keywords : [];
       const updatedQuestion = await prisma.quiz.update({
             where: { id: id },
             data: {
                   answer: answer,
                   question: question,
+                  keywords: {
+                        set: [],
+                        connectOrCreate: keywordsArray.map((kw) => ({
+                              where: { name: kw },
+                              create: { name: kw },
+                        })),
+                  },
             },
       });
-      res.json(formatQuestion(updatedQuestion));
+      res.json(formatQuestion(formatQuestion(updatedQuestion)));
 });
 router.delete("/:id", isOwner, async (req, res) => {
       const id = Number(req.params.id);
 
       const question = await prisma.quiz.findUnique({
-            include: { user: true },
+            include: { keywords: true, user: true },
             where: { id: id },
       });
 

@@ -4,26 +4,32 @@ const prisma = new PrismaClient();
 
 const seedQuestions = [
       {
-            question: "What Girl can start with a (legal) gun in Girl Frame??",
-            answer: "Princess",
+            question: "What Girl can start with a (legal) gun?",
+            answer: "princess",
+            keywords: ["mechsploitation", "girl frame"]
       },
       {
             question: "How much Experience does the Newgirl need to swap one of its rules?",
-            answer: "3"
+            answer: "3",
+            keywords: ["mechsploitation", "girl frame"]
       },
       {
-            question: "What is the max amount of Identies a Girl can have in Girl Frame?",
+            question: "What is the max amount of Identies a Girl can have?",
             answer: "4",
+            keywords: ["mechsploitation", "girl frame"]
       },
       {
             question: "Which Girl has the rule 'Barely a Girl'?",
-            answer: "Casualty",
+            answer: "casualty",
+            keywords: ["mechsploitation", "girl frame"]
       },
 ];
 
 async function main() {
       await prisma.user.deleteMany();
       await prisma.quiz.deleteMany();
+      await prisma.keyword.deleteMany();
+
       // Create a default user
       const hashedPassword = await bcrypt.hash("1234", 10);
       const user = await prisma.user.create({
@@ -42,6 +48,12 @@ async function main() {
                         userId: user.id,
                         question: question.question,
                         answer: question.answer,
+                        keywords: {
+                              connectOrCreate: question.keywords.map((kw) => ({
+                                    where: { name: kw },
+                                    create: { name: kw },
+                              })),
+                        },
                   },
             });
       }
