@@ -6,27 +6,36 @@ const authenticate = require("../middleware/auth");
 const isOwner = require("../middleware/isOwner");
 router.use(authenticate);
 
+function formatQuestion(question) {
+      return {
+            ...question,
+            userName: question.user?.name || null,
+            user: undefined,
+      };
+}
+
 router.get("/", async (req, res) => {
       const questions = await prisma.quiz.findMany({
+            include: { user: true },
             orderBy: { id: "asc" },
       });
-
-      res.json(questions);
+      const formatted = questions.map(q => formatQuestion(q));
+      res.json(formatQuestion(formatted));
 });
 
 router.get("/:id", async (req, res) => {
       const id = Number(req.params.id);
       const question = await prisma.quiz.findUnique({
+            include: { user: true },
             where: { id: id },
       });
 
       if (!question) {
             return res.status(404).json({
-                  message: "Post not found"
+                  message: "question not found"
             });
       }
-
-      res.json(question);
+      res.json(formatQuestion(question));
 });
 router.post("/", async (req, res) => {
       const { question, answer } = req.body;
@@ -70,12 +79,13 @@ router.put("/:id", isOwner, async (req, res) => {
                   question: question,
             },
       });
-      res.json(updatedQuestion);
+      res.json(formatQuestion(updatedQuestion));
 });
 router.delete("/:id", isOwner, async (req, res) => {
       const id = Number(req.params.id);
 
       const question = await prisma.quiz.findUnique({
+            include: { user: true },
             where: { id: id },
       });
 
@@ -87,7 +97,7 @@ router.delete("/:id", isOwner, async (req, res) => {
 
       res.json({
             message: "Question deleted successfully",
-            question: question,
+            question: formatQuestion(question),
       });
 });
 
