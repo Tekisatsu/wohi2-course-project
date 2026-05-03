@@ -1,27 +1,32 @@
 const { PrismaClient } = require("@prisma/client");
 const bcrypt = require("bcrypt");
+const { quiz } = require("../src/lib/prisma");
 const prisma = new PrismaClient();
 
 const seedQuestions = [
       {
             question: "What Girl can start with a (legal) gun?",
             answer: "princess",
-            keywords: ["mechsploitation", "girl frame"]
+            keywords: ["mechsploitation", "girl frame"],
+            date: new Date("2026-03-22"),
       },
       {
             question: "How much Experience does the Newgirl need to swap one of its rules?",
             answer: "3",
-            keywords: ["mechsploitation", "girl frame"]
+            keywords: ["mechsploitation", "girl frame"],
+            date: new Date("2026-03-22"),
       },
       {
             question: "What is the max amount of Identies a Girl can have?",
             answer: "4",
-            keywords: ["mechsploitation", "girl frame"]
+            keywords: ["mechsploitation", "girl frame"],
+            date: new Date("2026-03-22"),
       },
       {
             question: "Which Girl has the rule 'Barely a Girl'?",
             answer: "casualty",
-            keywords: ["mechsploitation", "girl frame"]
+            keywords: ["mechsploitation", "girl frame"],
+            date: new Date("2026-03-22"),
       },
 ];
 
@@ -48,6 +53,7 @@ async function main() {
                         userId: user.id,
                         question: question.question,
                         answer: question.answer,
+                        date: quiz.data,
                         keywords: {
                               connectOrCreate: question.keywords.map((kw) => ({
                                     where: { name: kw },
