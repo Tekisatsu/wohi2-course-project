@@ -7,6 +7,18 @@ const isOwner = require("../middleware/isOwner");
 router.use(authenticate);
 const path = require('path');
 const multer = require("multer");
+const { NotFoundError, ValidationError } = require("../lib/errors");
+const { z } = require("zod");
+
+const QuestionInput = z.object({
+      question: z.string().min(1),
+      answer: z.string().min(1),
+      keywords: z.union([z.string(), z.array(z.string())]).optional(),
+});
+
+router.post("/", upload.single("image"), async (req, res) => {
+      const data = QuestionInput.parse(req.body); // throws ZodError on failure
+});
 
 router.use((err, req, res, next) => {
       if (err instanceof multer.MulterError ||
@@ -28,7 +40,7 @@ const upload = multer({
       storage,
       fileFilter: (req, file, cb) => {
             if (file.mimetype.startsWith("image/")) cb(null, true);
-            else cb(new Error("Only image files are allowed"));
+            else cb(new ValidationError("Only image files are allowed"));
       },
       limits: { fileSize: 5 * 1024 * 1024 },
 });
@@ -106,9 +118,7 @@ router.get("/:id", async (req, res) => {
       });
 
       if (!question) {
-            return res.status(404).json({
-                  message: "question not found"
-            });
+            throw new NotFoundError("Question not found");
       }
       res.json(formatQuestion(question));
 });
@@ -116,10 +126,7 @@ router.post("/", upload.single("image"), async (req, res) => {
       const { question, answer, keywords } = req.body;
 
       if (!question || !answer) {
-            return res.status(400).json({
-                  msg:
-                        "question, answer and date are mandatory"
-            });
+            throw new ValidationError("Question and answer are mandatory");
       }
 
       const keywordsArray = Array.isArray(keywords) ? keywords : [];
@@ -153,7 +160,7 @@ router.put("/:id", upload.single("image"), isOwner, async (req, res) => {
       }
 
       if (!question || !answer) {
-            return res.status(400).json({ msg: "question, answer and date are mandatory" });
+            throw new ValidationError("Question and answer are mandatory");
       }
 
       const keywordsArray = Array.isArray(keywords) ? keywords : [];
@@ -185,7 +192,7 @@ router.delete("/:id", isOwner, async (req, res) => {
       });
 
       if (!question) {
-            return res.status(404).json({ message: "Question not found" });
+            throw new NotFoundError("Question not found");
       }
 
       await prisma.quiz.delete({ where: { id: id } });
@@ -202,7 +209,7 @@ router.post("/:id/play", async (req, res) => {
 
       const question = await prisma.quiz.findUnique({ where: { id: questionId } });
       if (!question) {
-            return res.status(404).json({ msg: "Not found" });
+            throw new NotFoundError("Question not found");
       }
 
       const isCorrect = question.answer.trim().toLowerCase() === answer.trim().toLowerCase();
