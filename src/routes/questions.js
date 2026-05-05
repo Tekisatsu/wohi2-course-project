@@ -123,11 +123,7 @@ router.get("/:id", async (req, res) => {
       res.json(formatQuestion(question));
 });
 router.post("/", upload.single("image"), async (req, res) => {
-      const { question, answer, keywords } = req.body;
-
-      if (!question || !answer) {
-            throw new ValidationError("Question and answer are mandatory");
-      }
+      const { question, answer, keywords } = QuestionInput.parse(req.body);
 
       const keywordsArray = Array.isArray(keywords) ? keywords : [];
       const imageUrl = req.file ? `/uploads/${req.file.filename}` : null;
@@ -153,16 +149,11 @@ router.post("/", upload.single("image"), async (req, res) => {
 
 router.put("/:id", upload.single("image"), isOwner, async (req, res) => {
       const id = Number(req.params.id);
-      const { question, answer, keywords } = req.body;
+      const { question, answer, keywords } = QuestionInput.parse(req.body);
       const existingQuestion = await prisma.quiz.findUnique({ where: { id: id } });
       if (!existingQuestion) {
             return res.status(404).json({ message: "Question not found" });
       }
-
-      if (!question || !answer) {
-            throw new ValidationError("Question and answer are mandatory");
-      }
-
       const keywordsArray = Array.isArray(keywords) ? keywords : [];
       const imageUrl = req.file ? `/uploads/${req.file.filename}` : null;
       const updatedQuestion = await prisma.quiz.update({

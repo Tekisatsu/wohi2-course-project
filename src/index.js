@@ -1,13 +1,19 @@
 const express = require('express');
-
 const app = express();
 const PORT = process.env.PORT || 3000;
+const pinoHttp = require("pino-http");
+const logger = require("./lib/logger");
 const questionsRouter = require("./routes/questions");
 const authRouter = require("./routes/auth");
 const prisma = require("./lib/prisma");
 const errorHandler = require("./middleware/errorHandler");
-
 const path = require('path');
+
+app.use(pinoHttp({
+      logger,
+      autoLogging: { ignore: (req) => req.url.startsWith("/uploads") },
+}));
+
 app.use(express.static(path.join(__dirname, '..', 'public')));
 
 // Middleware to parse JSON bodies (will be useful in later steps)
@@ -22,7 +28,7 @@ app.use((req, res) => {
 
 // Start the server
 app.listen(PORT, () => {
-      console.log(`Server is running on http://localhost:${PORT}`);
+      logger.info({ port: PORT }, `Server is running on http://localhost:${PORT}`);
 });
 // Graceful shutdown
 process.on("SIGINT", async () => {
