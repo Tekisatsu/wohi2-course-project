@@ -8,7 +8,7 @@
     "dev": "node --watch src/index.js",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:setup": "DATABASE_URL=mysql://root:password@localhost:3306/cms_test npx prisma migrate deploy",
+    "test:setup": "DATABASE_URL=mysql://root:adgh@localhost:3306/cms_test npx prisma migrate deploy",
     "test:coverage": "vitest run --coverage",
     "db:migrate": "npx prisma migrate dev",
     "db:seed": "npx prisma db seed",
