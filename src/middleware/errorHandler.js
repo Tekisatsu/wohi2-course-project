@@ -1,7 +1,8 @@
 const { ZodError } = require("zod");
 const jwt = require("jsonwebtoken");
 const multer = require("multer");
-const { AppError } = require("../lib/errors");
+
+const { AppError, ValidationError, UnauthorizedError, ForbiddenError, NotFoundError, ConflictError } = require("../lib/errors");
 
 function errorHandler(err, req, res, next) {
       if (err instanceof ZodError) {
@@ -16,6 +17,21 @@ function errorHandler(err, req, res, next) {
       }
       if (err instanceof AppError) {
             return res.status(err.status).json({ message: err.message });
+      }
+      if (err instanceof ValidationError) {
+            return res.status(err.status).json({ message: err.message })
+      }
+      if (err instanceof UnauthorizedError) {
+            return res.status(err.status).json({ message: err.message })
+      }
+      if (err instanceof ForbiddenError) {
+            return res.status(err.status).json({ message: err.message })
+      }
+      if (err instanceof NotFoundError) {
+            return res.status(err.status).json({ message: err.message })
+      }
+      if (err instanceof ConflictError) {
+            return res.status(err.status).json({ message: err.message })
       }
       if (err.type === "entity.parse.failed") {
             return res.status(400).json({ message: "Invalid JSON in request body" });

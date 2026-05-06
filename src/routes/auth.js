@@ -4,68 +4,74 @@ const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const prisma = require("../lib/prisma");
 const SECRET = process.env.JWT_SECRET;
+const { ValidationError, UnauthorizedError, ConflictError } = require("../lib/errors");
 
 // Here we will add all routes related to authentication
 // POST /api / auth / register
 
-router.post("/register", async (req, res) => {
-      const { email, password, name } = req.body;
+router.post("/register", async (req, res, next) => {
+      try {
+            const { email, password, name } = req.body;
 
-      if (!email || !password || !name) {
-            throw new ValidationError("email, password and name are required");
-      }
+            if (!email || !password || !name) {
+                  throw new ValidationError("email, password and name are required");
+            }
 
-      // Check if user already exists
-      const existingUser = await prisma.user.findUnique({ where: { email }, });
+            // Check if user already exists
+            const existingUser = await prisma.user.findUnique({ where: { email }, });
 
-      if (existingUser) {
-            throw new ConflictError("email already registered");
-      }
+            if (existingUser) {
+                  throw new ConflictError("email already registered");
+            }
 
-      // Hash the password
-      const hashedPassword = await bcrypt.hash(password, 10);
+            // Hash the password
+            const hashedPassword = await bcrypt.hash(password, 10);
 
-      // Create the user
-      const user = await prisma.user.create({
-            data: { email, password: hashedPassword, name },
-      });
+            // Create the user
+            const user = await prisma.user.create({
+                  data: { email, password: hashedPassword, name },
+            });
 
-      // Generate a token
-      const token = jwt.sign({ userId: user.id }, SECRET, { expiresIn: "1h" });
+            // Generate a token
+            const token = jwt.sign({ userId: user.id }, SECRET, { expiresIn: "1h" });
 
-      res.status(201).json({
-            message: "user registered successfully",
-            token,
-      });
+            res.status(201).json({
+                  message: "user registered successfully",
+                  token,
+            });
+      } catch (err) { next(err); }
 });
 
-router.post("/login", async (req, res) => {
-      const { email, password } = req.body;
+router.post("/login", async (req, res, next) => {
+      try {
+            const { email, password } = req.body;
 
-      if (!email || !password) {
-            throw new ValidationError("email and password are required");
+            if (!email || !password) {
+                  throw new ValidationError("email and password are required");
+            }
+
+            // Find the user
+            const user = await prisma.user.findUnique({
+                  where: { email },
+            });
+
+            if (!user) {
+                  throw new UnauthorizedError("Invalid credentials");
+            }
+
+            // Verify the password
+            const isValid = await bcrypt.compare(password, user.password);
+
+            if (!isValid) {
+                  throw new UnauthorizedError("Invalid credentials");
+            }
+
+            // Generate a token
+            const token = jwt.sign({ userId: user.id }, SECRET, { expiresIn: "1h" });
+
+            res.json({ token });
       }
-
-      // Find the user
-      const user = await prisma.user.findUnique({
-            where: { email },
-      });
-
-      if (!user) {
-            throw new UnauthorizedError("Invalid credentials");
-      }
-
-      // Verify the password
-      const isValid = await bcrypt.compare(password, user.password);
-
-      if (!isValid) {
-            throw new UnauthorizedError("Invalid credentials");
-      }
-
-      // Generate a token
-      const token = jwt.sign({ userId: user.id }, SECRET, { expiresIn: "1h" });
-
-      res.json({ token });
+      catch (err) { next(err); }
 });
 
 module.exports = router; // This should be the last line

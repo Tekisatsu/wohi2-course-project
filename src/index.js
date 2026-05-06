@@ -1,42 +1,14 @@
-const express = require('express');
-const app = express();
-const PORT = process.env.PORT || 3000;
-const pinoHttp = require("pino-http");
+const app = require("./app");
 const logger = require("./lib/logger");
-const questionsRouter = require("./routes/questions");
-const authRouter = require("./routes/auth");
 const prisma = require("./lib/prisma");
-const errorHandler = require("./middleware/errorHandler");
-const path = require('path');
-
-app.use(pinoHttp({
-      logger,
-      autoLogging: { ignore: (req) => req.url.startsWith("/uploads") },
-}));
-
-app.use(express.static(path.join(__dirname, '..', 'public')));
-
-// Middleware to parse JSON bodies (will be useful in later steps)
-app.use(express.json());
-app.use("/api/questions", questionsRouter);
-app.use("/api/auth", authRouter);
-app.use(errorHandler);
-
-app.use((req, res) => {
-      res.json({ msg: "Not found" });
+const PORT = process.env.PORT || 3000;
+const server = app.listen(PORT, () => {
+      logger.info({ port: PORT }, "server listening");
 });
 
-// Start the server
-app.listen(PORT, () => {
-      logger.info({ port: PORT }, `Server is running on http://localhost:${PORT}`);
-});
-// Graceful shutdown
-process.on("SIGINT", async () => {
+async function shutdown() {
       await prisma.$disconnect();
-      process.exit(0);
-});
-
-process.on("SIGTERM", async () => {
-      await prisma.$disconnect();
-      process.exit(0);
-});
+      server.close(() => process.exit(0));
+}
+process.on("SIGINT", shutdown);
+process.on("SIGTERM", shutdown);

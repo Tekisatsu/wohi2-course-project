@@ -6,7 +6,10 @@
   "scripts": {
     "start": "node src/index.js",
     "dev": "node --watch src/index.js",
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:setup": "DATABASE_URL=mysql://root:password@localhost:3306/cms_test npx prisma migrate deploy",
+    "test:coverage": "vitest run --coverage",
     "db:migrate": "npx prisma migrate dev",
     "db:seed": "npx prisma db seed",
     "db:studio": "npx prisma studio",
@@ -35,6 +38,10 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "prisma": "^6.19.3"
+    "@vitest/coverage-v8": "^4.1.5",
+    "dotenv": "^17.4.2",
+    "prisma": "^6.19.3",
+    "supertest": "^7.2.2",
+    "vitest": "^4.1.5"
   }
 }

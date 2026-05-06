@@ -7,17 +7,14 @@ const isOwner = require("../middleware/isOwner");
 router.use(authenticate);
 const path = require('path');
 const multer = require("multer");
-const { NotFoundError, ValidationError } = require("../lib/errors");
-const { z } = require("zod");
+const { NotFoundError, ValidationError, ForbiddenError } = require("../lib/errors");
+const { z, ZodError } = require("zod");
+const errorHandler = require("../middleware/errorHandler");
 
 const QuestionInput = z.object({
       question: z.string().min(1),
       answer: z.string().min(1),
       keywords: z.union([z.string(), z.array(z.string())]).optional(),
-});
-
-router.post("/", upload.single("image"), async (req, res) => {
-      const data = QuestionInput.parse(req.body); // throws ZodError on failure
 });
 
 router.use((err, req, res, next) => {
@@ -45,6 +42,7 @@ const upload = multer({
       limits: { fileSize: 5 * 1024 * 1024 },
 });
 
+
 function formatQuestion(question) {
       return {
             ...question,
@@ -64,17 +62,51 @@ function parseKeywords(keywords) {
       return [];
 }
 
-router.get("/", async (req, res) => {
-      const { keyword, page, limit } = req.query;
-      const skip = (page - 1) * limit;
+router.get("/", async (req, res, next) => {
+      try {
+            const page = Math.max(1, parseInt(req.query.page) || 1);
+            const limit = Math.max(1, Math.min(100, parseInt(req.query.limit) || 10));
+            const skip = (page - 1) * limit;
+            const { keyword } = req.query;
 
-      const where = keyword
-            ? { keywords: { some: { name: keyword } } }
-            : {};
+            const where = keyword
+                  ? { keywords: { some: { name: keyword } } }
+                  : {};
 
-      const [questions, total] = await Promise.all([
-            prisma.quiz.findMany({
-                  where,
+            const [questions, total] = await Promise.all([
+                  prisma.quiz.findMany({
+                        where,
+                        include: {
+                              keywords: true, user: true,
+                              attempts: {
+                                    where: {
+                                          userId: req.user.userId,
+                                          correct: true
+                                    },
+                                    take: 1
+                              }
+                        },
+                        orderBy: { id: "asc" },
+                        skip: skip,
+                        take: limit,
+                  }),
+                  prisma.quiz.count({ where }),
+            ]);
+            const formatted = questions.map(q => formatQuestion(q));
+            res.json({
+                  data: formatted,
+                  page,
+                  limit,
+                  total,
+                  totalPages: Math.ceil(total / limit),
+            });
+      } catch (err) { next(err); }
+});
+
+router.get("/:id", async (req, res, next) => {
+      try {
+            const id = Number(req.params.id);
+            const question = await prisma.quiz.findUnique({
                   include: {
                         keywords: true, user: true,
                         attempts: {
@@ -85,82 +117,56 @@ router.get("/", async (req, res) => {
                               take: 1
                         }
                   },
-                  orderBy: { id: "asc" },
-                  skip: parseInt(skip),
-                  take: parseInt(limit),
-            }),
-            prisma.quiz.count({ where }),
-      ]);
-      const formatted = questions.map(q => formatQuestion(q));
-      res.json({
-            data: formatted,
-            page,
-            limit,
-            total,
-            totalPages: Math.ceil(total / limit),
-      });
-});
+                  where: { id: id },
+            });
 
-router.get("/:id", async (req, res) => {
-      const id = Number(req.params.id);
-      const question = await prisma.quiz.findUnique({
-            include: {
-                  keywords: true, user: true,
-                  attempts: {
-                        where: {
-                              userId: req.user.userId,
-                              correct: true
-                        },
-                        take: 1
-                  }
-            },
-            where: { id: id },
-      });
-
-      if (!question) {
-            throw new NotFoundError("Question not found");
+            if (!question) {
+                  throw new NotFoundError("Question not found");
+            }
+            res.json(formatQuestion(question));
       }
-      res.json(formatQuestion(question));
+      catch (err) { next(err); }
 });
-router.post("/", upload.single("image"), async (req, res) => {
-      const { question, answer, keywords } = QuestionInput.parse(req.body);
-
-      const keywordsArray = Array.isArray(keywords) ? keywords : [];
-      const imageUrl = req.file ? `/uploads/${req.file.filename}` : null;
-      const newQuestion = await prisma.quiz.create({
-            data: {
-                  user: {
-                        connect: { id: req.user.userId }
+router.post("/", upload.single("image"), async (req, res, next) => {
+      try {
+            const data = QuestionInput.parse(req.body);
+            const keywordsArray = Array.isArray(data.keywords) ? keywords : [];
+            const imageUrl = req.file ? `/uploads/${req.file.filename}` : null;
+            const newQuestion = await prisma.quiz.create({
+                  data: {
+                        user: {
+                              connect: { id: req.user.userId }
+                        },
+                        question: data.question,
+                        answer: data.answer,
+                        imageUrl: imageUrl,
+                        keywords: {
+                              connectOrCreate: keywordsArray.map((kw) => ({
+                                    where: { name: kw }, create: { name: kw },
+                              })),
+                        },
                   },
-                  question: question,
-                  answer: answer,
-                  imageUrl: imageUrl,
-                  keywords: {
-                        connectOrCreate: keywordsArray.map((kw) => ({
-                              where: { name: kw }, create: { name: kw },
-                        })),
-                  },
-            },
-            include: { keywords: true },
-      });
+                  include: { keywords: true },
+            });
 
-      res.status(201).json(formatQuestion(newQuestion));
+            res.status(201).json(formatQuestion(newQuestion));
+      } catch (err) { next(err); }
 });
 
 router.put("/:id", upload.single("image"), isOwner, async (req, res) => {
       const id = Number(req.params.id);
-      const { question, answer, keywords } = QuestionInput.parse(req.body);
+      const data = QuestionInput.parse(req.body);
       const existingQuestion = await prisma.quiz.findUnique({ where: { id: id } });
       if (!existingQuestion) {
-            return res.status(404).json({ message: "Question not found" });
+            throw new NotFoundError("Question not found");
       }
-      const keywordsArray = Array.isArray(keywords) ? keywords : [];
+      const keywordsArray = Array.isArray(data.keywords) ? keywords : [];
       const imageUrl = req.file ? `/uploads/${req.file.filename}` : null;
       const updatedQuestion = await prisma.quiz.update({
             where: { id: id },
             data: {
-                  answer: answer,
-                  question: question,
+                  answer: data.answer,
+                  question: data.question,
                   date: new Date.now(),
                   imageUrl: imageUrl,
                   keywords: {
